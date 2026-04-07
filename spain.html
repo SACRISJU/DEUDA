@@ -373,9 +373,19 @@
     </div>
   </section>
 
+  <!-- BAR CHART -->
+  <section class="chart-section" style="margin-top:32px">
+    <div class="section-title">Variación de deuda por mandato</div>
+    <div class="chart-box">
+      <div class="chart-canvas-wrap" style="height:320px">
+        <canvas id="barChart"></canvas>
+      </div>
+    </div>
+  </section>
+
   <!-- CARDS -->
   <section class="cards-section">
-    <div class="section-title">Deuda acumulada por mandato</div>
+    <div class="section-title">Detalle por presidente</div>
     <div class="cards-grid" id="cardsGrid"></div>
   </section>
 
@@ -519,7 +529,7 @@ function buildAnnotations() {
         borderWidth: 1,
         borderDash: [4, 3],
         label: {
-          content: p.name.split(' ')[0],
+          content: shortName(p.name),
           display: true,
           position: 'start',
           yAdjust: -8 + (i % 3) * 18,
@@ -626,7 +636,7 @@ function renderChart() {
             title: ([item]) => {
               const d = item.label;
               const pres = presidAtDate(d);
-              return d + (pres ? `  ·  ${pres.name.split(' ')[0]} ${pres.name.split(' ')[1]}` : '');
+              return d + (pres ? `  ·  ${shortName(pres.name)}` : '');
             },
             label: (item) => {
               const v = item.raw;
@@ -675,6 +685,162 @@ function presidAtDate(yyyymm) {
     const s = p.start.substring(0, 7);
     const e = p.end ? p.end.substring(0, 7) : '9999-99';
     return yyyymm >= s && yyyymm <= e;
+  });
+}
+
+// ── SHORT NAME (nombre + primer apellido) ────────────────────────────
+function shortName(full) {
+  // "José María Aznar López" → "J.M. Aznar"
+  // "Felipe González Márquez" → "F. González"
+  // "Pedro Sánchez Pérez-Castejón" → "P. Sánchez"
+  const parts = full.split(' ');
+  // Find first uppercase word that's not a common compound name part
+  // Strategy: last two are surnames, everything before is given names
+  if (parts.length <= 2) return full;
+  const surnames = parts.slice(-2);
+  const given = parts.slice(0, -2);
+  const initials = given.map(n => n[0] + '.').join('');
+  return initials + ' ' + surnames[0];
+}
+
+// ── RENDER BAR CHART ─────────────────────────────────────────────────
+let barChart = null;
+
+function renderBarChart() {
+  const firstAvail = debtData[0].date;
+  const latest = latestDebt();
+
+  // Build data for presidents with available data
+  const items = presidents
+    .map(p => {
+      const pStart = p.start.substring(0, 7);
+      const pEnd   = p.end ? p.end.substring(0, 7) : null;
+      const dataStart = pStart >= firstAvail ? pStart : firstAvail;
+      const dataEnd   = pEnd || latest.date;
+      if (dataStart > latest.date) return null;
+      const vStart = valueAt(dataStart);
+      const vEnd   = pEnd ? valueAt(dataEnd) : latest.value;
+      if (vStart === null || vEnd === null) return null;
+      const delta = vEnd - vStart;
+      const deltaPct = ((delta / vStart) * 100);
+      return {
+        name: shortName(p.name),
+        fullName: p.name,
+        color: p.color,
+        party: p.party,
+        delta,
+        deltaPct,
+        vStart, vEnd,
+        years: p.start.substring(0,4) + '–' + (p.end ? p.end.substring(0,4) : 'pres.'),
+        isCurrent: !p.end,
+      };
+    })
+    .filter(Boolean);
+
+  const labels = items.map(d => d.name);
+  const values = items.map(d => d.deltaPct);
+  const barColors = items.map(d => hexAlpha(d.color, 0.7));
+  const borderColors = items.map(d => d.color);
+
+  if (barChart) { barChart.destroy(); barChart = null; }
+
+  const ctx = document.getElementById('barChart').getContext('2d');
+
+  // Custom plugin to draw % labels inside bars
+  const insideLabelsPlugin = {
+    id: 'insideLabels',
+    afterDatasetsDraw(chart) {
+      const meta = chart.getDatasetMeta(0);
+      const ctx = chart.ctx;
+      ctx.save();
+      meta.data.forEach((bar, i) => {
+        const v = values[i];
+        const sign = v >= 0 ? '+' : '';
+        const label = sign + v.toFixed(1) + '%';
+        ctx.font = "bold 11px 'JetBrains Mono', monospace";
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const barH = Math.abs(bar.y - bar.base);
+        if (barH > 22) {
+          ctx.fillText(label, bar.x, bar.y + (bar.base - bar.y) / 2);
+        } else {
+          // Label above/below if bar is too small
+          ctx.fillStyle = borderColors[i];
+          ctx.fillText(label, bar.x, v >= 0 ? bar.y - 10 : bar.y + 10);
+        }
+      });
+      ctx.restore();
+    }
+  };
+
+  barChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Variación % durante mandato',
+        data: values,
+        backgroundColor: barColors,
+        borderColor: borderColors,
+        borderWidth: 1.5,
+        borderRadius: 6,
+        borderSkipped: false,
+      }]
+    },
+    plugins: [insideLabelsPlugin],
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 500 },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0d0f1a',
+          borderColor: 'rgba(255,255,255,0.1)',
+          borderWidth: 1,
+          titleColor: '#e8eaf0',
+          bodyColor: 'rgba(232,234,240,0.6)',
+          titleFont: { family: "'Syne', sans-serif", weight: '700', size: 13 },
+          bodyFont: { family: "'JetBrains Mono', monospace", size: 11 },
+          padding: 14,
+          cornerRadius: 10,
+          callbacks: {
+            title: (its) => items[its[0].dataIndex].fullName + ' (' + items[its[0].dataIndex].party + ')',
+            label: (item) => {
+              const d = items[item.dataIndex];
+              const sign = d.delta >= 0 ? '+' : '';
+              return [
+                '  Período: ' + d.years,
+                '  Inicio:  ' + fmtBshort(d.vStart),
+                '  Fin:     ' + fmtBshort(d.vEnd),
+                '  Δ:       ' + sign + fmtBshort(d.delta) + ' (' + sign + d.deltaPct.toFixed(1) + '%)',
+              ];
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(255,255,255,0.04)', drawBorder: false },
+          border: { display: false },
+          ticks: {
+            color: 'rgba(232,234,240,0.45)',
+            font: { family: "'JetBrains Mono', monospace", size: 10 },
+            maxRotation: 25,
+          }
+        },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false },
+          border: { display: false },
+          ticks: {
+            color: 'rgba(232,234,240,0.4)',
+            font: { family: "'JetBrains Mono', monospace", size: 10 },
+            callback: (v) => (v >= 0 ? '+' : '') + v.toFixed(0) + '%'
+          }
+        }
+      }
+    }
   });
 }
 
@@ -789,6 +955,7 @@ async function init() {
     renderStats();
     renderLegend();
     renderChart();
+    renderBarChart();
     renderCards();
 
   } catch (err) {
