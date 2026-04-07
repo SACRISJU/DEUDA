@@ -647,7 +647,7 @@ function renderChart() {
             maxTicksLimit: 16,
             maxRotation: 0,
             callback: (val, idx, ticks) => {
-              const label = chart.data.labels[idx];
+              const label = ticks[idx]?.label;
               if (label && label.endsWith('-01')) return label.substring(0, 4);
               return '';
             }
