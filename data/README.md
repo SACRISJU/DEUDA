@@ -29,11 +29,13 @@ data/
 | `ccll_miles_eur` | Corporaciones Locales | Miles de € |
 | `ss_miles_eur` | Seguridad Social | Miles de € |
 
-- **Cobertura:** diciembre 1994 → presente
-- **Frecuencia:** mensual
-- **Fuente:** Banco de España — Tabla 11.b (Boletín Estadístico), Protocolo de Déficit Excesivo (PDE/EDP), metodología SEC2010
-- **URL fuente:** https://www.bde.es/webbe/es/estadisticas/compartido/datos/csv/be11b.csv
-- **Nota:** Los valores `_` indican dato no disponible aún en la fuente oficial.
+- **Cobertura:** diciembre 1980 → presente
+- **Frecuencia:** anual (1980–1993, asignado a diciembre) + mensual (dic 1994 → presente)
+- **Fuentes:**
+  - 1980–1993: FMI World Economic Outlook (via DBnomics), deuda bruta total AAPP en miles de millones EUR (convertido retroactivamente de pesetas). Solo columna `total_aapp_miles_eur`; demás columnas vacías.
+  - Dic 1994 → presente: Banco de España — Tabla 11.b (Boletín Estadístico), Protocolo de Déficit Excesivo (PDE/EDP), metodología SEC2010.
+- **URL fuente mensual:** https://www.bde.es/webbe/es/estadisticas/compartido/datos/csv/be11b.csv
+- **Nota:** Los valores vacíos o `_` indican dato no disponible. Las filas anuales (1980–1993) solo tienen deuda total AAPP.
 
 ### `presidents.json`
 

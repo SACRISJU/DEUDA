@@ -327,7 +327,7 @@
     <div>
       <div class="eyebrow">Vista detallada · Datos reales Banco de España</div>
       <h1><span class="flag">🇪🇸</span> Deuda Pública<br><span class="accent">España</span></h1>
-      <p class="subtitle">Deuda mensual de las AAPP · Protocolo de Déficit Excesivo (EDP) · dic 1994 – presente</p>
+      <p class="subtitle">Datos anuales FMI (1980–1994) + mensuales Banco de España (1994–presente)</p>
     </div>
     <a href="index.html" class="back-link">← Todos los países</a>
   </header>
@@ -335,7 +335,7 @@
   <!-- STATS BAR -->
   <div class="stats-bar" id="statsBar">
     <div class="stat">
-      <div class="stat-label">Deuda inicial (ene 1995)</div>
+      <div class="stat-label">Deuda inicial (dic 1980)</div>
       <div class="stat-value" id="s-start">—</div>
     </div>
     <div class="stat">
@@ -395,7 +395,9 @@
     <strong>URL:</strong> https://www.bde.es/webbe/es/estadisticas/compartido/datos/csv/be11b.csv<br>
     <strong>Fuente de mandatos:</strong> La Moncloa / BOE (Boletín Oficial del Estado)<br>
     <strong>Unidad:</strong> Miles de euros (÷ 1.000.000 = miles de millones €) · <strong>Frecuencia:</strong> Mensual · <strong>Cobertura:</strong> dic 1994 – presente<br>
-    <strong>Nota:</strong> Los datos del Banco de España pueden sufrir revisiones retroactivas. El período anterior a dic 1994 no dispone de datos mensuales en esta fuente.
+    <strong>Nota:</strong> Los datos del Banco de España pueden sufrir revisiones retroactivas.
+    Período 1980–1994: datos anuales FMI (World Economic Outlook) asignados a diciembre de cada año, solo deuda total AAPP.
+    Período 1994–presente: datos mensuales Banco de España con desglose por subsector.
   </footer>
 
 </div>
@@ -943,9 +945,10 @@ function switchMetric(m, btn) {
 // ── MAIN ──────────────────────────────────────────────────────────────
 async function init() {
   try {
+    const bust = '?v=' + Date.now();
     const [csvText, jsonData] = await Promise.all([
-      fetch(CSV_URL).then(r => r.text()),
-      fetch(JSON_URL).then(r => r.json())
+      fetch(CSV_URL + bust).then(r => r.text()),
+      fetch(JSON_URL + bust).then(r => r.json())
     ]);
 
     debtData   = parseCSV(csvText);
