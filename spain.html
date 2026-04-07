@@ -272,6 +272,17 @@
     .card-delta.na { background: rgba(255,255,255,0.04); color: var(--muted); border: 1px solid var(--border); }
     .delta-sub { font-family: var(--font-serif); font-style: italic; font-weight: 400; font-size: 0.72rem; margin-left: auto; opacity: 0.7; }
 
+    .card-dates {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .card-dates .arrow { opacity: 0.4; }
+    .card-dates .date-val { color: rgba(232,234,240,0.7); }
+
     /* ── LOADING ── */
     #loading {
       display: flex;
@@ -470,6 +481,14 @@ function renderLegend() {
   `).join('');
 }
 
+// ── FORMAT DATE ───────────────────────────────────────────────────────
+function fmtDate(iso) {
+  if (!iso) return 'Presente';
+  const months = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const [y, m, d] = iso.split('-');
+  return `${parseInt(d)} ${months[parseInt(m)-1]} ${y}`;
+}
+
 // ── BUILD ANNOTATIONS ─────────────────────────────────────────────────
 function buildAnnotations() {
   const annotations = {};
@@ -509,6 +528,34 @@ function buildAnnotations() {
           backgroundColor: 'transparent',
           padding: 0,
         }
+      };
+    }
+
+    // % change label inside each band
+    const inRange = debtData.filter(d => d.date >= xMin && d.date <= xMax);
+    if (inRange.length >= 2) {
+      const vS = inRange[0].value;
+      const vE = inRange[inRange.length - 1].value;
+      const pct = ((vE - vS) / vS * 100);
+      const sign = pct >= 0 ? '+' : '';
+      const midPoint = inRange[Math.floor(inRange.length / 2)];
+      // Place label above the midpoint of the line
+      const yMid = (inRange[0].value + inRange[inRange.length - 1].value) / 2;
+
+      annotations[`pct_${i}`] = {
+        type: 'label',
+        xValue: midPoint.date,
+        yValue: currentMetric === 'abs'
+          ? yMid
+          : ((yMid - debtData[0].value) / debtData[0].value * 100),
+        content: sign + pct.toFixed(1) + '%',
+        color: p.color,
+        font: { family: "'JetBrains Mono', monospace", size: 11, weight: 'bold' },
+        backgroundColor: hexAlpha(p.color, 0.13),
+        borderColor: hexAlpha(p.color, 0.35),
+        borderWidth: 1,
+        borderRadius: 5,
+        padding: { x: 7, y: 4 },
       };
     }
   });
@@ -654,9 +701,11 @@ function renderCards() {
     const deltaPct = delta !== null && vStart ? ((delta / vStart) * 100).toFixed(1) : null;
     const isCurrent = !p.end;
 
-    // Year display
-    const startYear = p.start.substring(0, 4);
-    const endYear   = p.end ? p.end.substring(0, 4) : 'pres.';
+    // Date display
+    const startYear  = p.start.substring(0, 4);
+    const endYear    = p.end ? p.end.substring(0, 4) : 'pres.';
+    const startFull  = fmtDate(p.start);
+    const endFull    = fmtDate(p.end);
 
     // Delta block
     let deltaHTML;
@@ -695,6 +744,11 @@ function renderCards() {
         <div class="card-years">${startYear}–${endYear}</div>
       </div>
       <div class="card-body">
+        <div class="card-dates">
+          <span class="date-val">${startFull}</span>
+          <span class="arrow">→</span>
+          <span class="date-val">${endFull}</span>
+        </div>
         <div class="card-numbers">
           <div class="num-cell">
             <div class="num-label">Deuda inicio</div>
