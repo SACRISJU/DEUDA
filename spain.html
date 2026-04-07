@@ -740,7 +740,7 @@ function renderBarChart() {
     .filter(Boolean);
 
   const labels = items.map(d => d.name);
-  const values = items.map(d => d.deltaPct);
+  const values = items.map(d => d.delta);
   const barColors = items.map(d => hexAlpha(d.color, 0.7));
   const borderColors = items.map(d => d.color);
 
@@ -748,7 +748,7 @@ function renderBarChart() {
 
   const ctx = document.getElementById('barChart').getContext('2d');
 
-  // Custom plugin to draw % labels inside bars
+  // Custom plugin to draw labels inside bars
   const insideLabelsPlugin = {
     id: 'insideLabels',
     afterDatasetsDraw(chart) {
@@ -758,8 +758,8 @@ function renderBarChart() {
       meta.data.forEach((bar, i) => {
         const v = values[i];
         const sign = v >= 0 ? '+' : '';
-        const label = sign + v.toFixed(1) + '%';
-        ctx.font = "bold 11px 'JetBrains Mono', monospace";
+        const label = sign + v.toFixed(0) + ' mm€';
+        ctx.font = "bold 10px 'JetBrains Mono', monospace";
         ctx.fillStyle = '#fff';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -767,7 +767,6 @@ function renderBarChart() {
         if (barH > 22) {
           ctx.fillText(label, bar.x, bar.y + (bar.base - bar.y) / 2);
         } else {
-          // Label above/below if bar is too small
           ctx.fillStyle = borderColors[i];
           ctx.fillText(label, bar.x, v >= 0 ? bar.y - 10 : bar.y + 10);
         }
@@ -781,7 +780,7 @@ function renderBarChart() {
     data: {
       labels,
       datasets: [{
-        label: 'Variación % durante mandato',
+        label: 'Deuda adquirida durante mandato (mm€)',
         data: values,
         backgroundColor: barColors,
         borderColor: borderColors,
@@ -838,7 +837,7 @@ function renderBarChart() {
           ticks: {
             color: 'rgba(232,234,240,0.4)',
             font: { family: "'JetBrains Mono', monospace", size: 10 },
-            callback: (v) => (v >= 0 ? '+' : '') + v.toFixed(0) + '%'
+            callback: (v) => (v >= 0 ? '+' : '') + v.toFixed(0) + ' mm€'
           }
         }
       }
