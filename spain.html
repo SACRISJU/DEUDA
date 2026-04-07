@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Deuda Pública de España por Presidente</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #06070d;
+      --surface: #0d0f1a;
+      --surface2: #13162a;
+      --border: rgba(255,255,255,0.07);
+      --text: #e8eaf0;
+      --muted: rgba(232,234,240,0.45);
+      --red: #f04e5e;
+      --green: #22d8a0;
+      --radius: 14px;
+      --font-display: 'Syne', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-serif: 'Lora', serif;
+      /* Spain theme */
+      --c1: #c60b1e;
+      --c2: #f0b429;
+      --c1-dim: rgba(198,11,30,0.12);
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-serif);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .glow { position: fixed; width: 600px; height: 600px; border-radius: 50%; filter: blur(140px); opacity: 0.06; pointer-events: none; z-index: 0; }
+    .glow-1 { top: -200px; right: -100px; background: var(--c1); }
+    .glow-2 { bottom: -200px; left: -100px; background: var(--c2); }
+
+    .wrapper { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 0 24px 80px; }
+
+    /* ── HEADER ── */
+    header {
+      padding: 48px 0 32px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--c1);
+      margin-bottom: 10px;
+    }
+
+    h1 {
+      font-family: var(--font-display);
+      font-size: clamp(1.8rem, 4vw, 3rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+    }
+
+    h1 .flag { font-size: 0.85em; margin-right: 8px; }
+    h1 .accent { color: var(--c1); }
+
+    .subtitle {
+      font-family: var(--font-serif);
+      font-style: italic;
+      color: var(--muted);
+      margin-top: 8px;
+      font-size: 0.92rem;
+    }
+
+    .back-link {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      text-decoration: none;
+      border: 1px solid var(--border);
+      padding: 8px 14px;
+      border-radius: 100px;
+      transition: all 0.2s;
+    }
+    .back-link:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
+
+    /* ── STATS BAR ── */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1px;
+      background: var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin: 28px 0 0;
+    }
+
+    .stat { background: var(--surface); padding: 20px 22px; }
+    .stat-label { font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+    .stat-value { font-family: var(--font-mono); font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em; }
+    .stat-sub { font-family: var(--font-serif); font-style: italic; font-size: 0.75rem; color: var(--muted); margin-top: 3px; }
+
+    /* ── SECTION TITLE ── */
+    .section-title {
+      font-family: var(--font-display);
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    /* ── CHART ── */
+    .chart-section { margin-top: 36px; }
+
+    .chart-controls {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .metric-toggle { display: flex; gap: 6px; }
+
+    .toggle-btn {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      padding: 7px 14px;
+      border-radius: 100px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .toggle-btn.active { background: var(--c1-dim); border-color: var(--c1); color: var(--text); }
+    .toggle-btn:hover:not(.active) { border-color: rgba(255,255,255,0.18); color: var(--text); }
+
+    .party-legend { display: flex; gap: 16px; flex-wrap: wrap; }
+    .legend-item { display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 0.7rem; color: var(--muted); }
+    .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+    .chart-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px 20px 16px;
+    }
+
+    .chart-canvas-wrap { position: relative; height: 380px; }
+
+    /* ── CARDS ── */
+    .cards-section { margin-top: 40px; }
+
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 12px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0;
+      overflow: hidden;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .card:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.13); }
+
+    .card-top {
+      padding: 18px 20px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .card-party-bar {
+      width: 4px;
+      border-radius: 4px;
+      flex-shrink: 0;
+      align-self: stretch;
+    }
+
+    .card-name-wrap { flex: 1; }
+
+    .card-name {
+      font-family: var(--font-display);
+      font-size: 0.95rem;
+      font-weight: 700;
+      line-height: 1.2;
+      margin-bottom: 4px;
+    }
+
+    .card-party-label {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      letter-spacing: 0.1em;
+      padding: 2px 7px;
+      border-radius: 4px;
+      display: inline-block;
+    }
+
+    .card-years {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      color: var(--muted);
+      padding: 4px 8px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      white-space: nowrap;
+    }
+
+    .card-body { padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; }
+
+    .card-numbers { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+    .num-cell { display: flex; flex-direction: column; gap: 3px; }
+    .num-label { font-family: var(--font-mono); font-size: 8px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); }
+    .num-value { font-family: var(--font-mono); font-size: 0.9rem; font-weight: 700; }
+    .num-value.na { color: var(--muted); font-family: var(--font-serif); font-style: italic; font-weight: 400; font-size: 0.78rem; }
+
+    .card-delta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 13px;
+      border-radius: 10px;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+    .card-delta.up { background: rgba(240,78,94,0.1); color: var(--red); border: 1px solid rgba(240,78,94,0.2); }
+    .card-delta.down { background: rgba(34,216,160,0.1); color: var(--green); border: 1px solid rgba(34,216,160,0.2); }
+    .card-delta.current { background: var(--c1-dim); color: var(--c1); border: 1px solid rgba(198,11,30,0.25); }
+    .card-delta.na { background: rgba(255,255,255,0.04); color: var(--muted); border: 1px solid var(--border); }
+    .delta-sub { font-family: var(--font-serif); font-style: italic; font-weight: 400; font-size: 0.72rem; margin-left: auto; opacity: 0.7; }
+
+    /* ── LOADING ── */
+    #loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 380px;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      margin-top: 60px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+      line-height: 1.9;
+    }
+    footer strong { color: rgba(232,234,240,0.55); }
+
+    @media (max-width: 600px) {
+      .cards-grid { grid-template-columns: 1fr; }
+      .chart-canvas-wrap { height: 260px; }
+      .chart-controls { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="glow glow-1"></div>
+<div class="glow glow-2"></div>
+
+<div class="wrapper">
+
+  <!-- HEADER -->
+  <header>
+    <div>
+      <div class="eyebrow">Vista detallada · Datos reales Banco de España</div>
+      <h1><span class="flag">🇪🇸</span> Deuda Pública<br><span class="accent">España</span></h1>
+      <p class="subtitle">Deuda mensual de las AAPP · Protocolo de Déficit Excesivo (EDP) · dic 1994 – presente</p>
+    </div>
+    <a href="index.html" class="back-link">← Todos los países</a>
+  </header>
+
+  <!-- STATS BAR -->
+  <div class="stats-bar" id="statsBar">
+    <div class="stat">
+      <div class="stat-label">Deuda inicial (ene 1995)</div>
+      <div class="stat-value" id="s-start">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Deuda actual</div>
+      <div class="stat-value" id="s-latest">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Aumento total</div>
+      <div class="stat-value" id="s-delta">—</div>
+      <div class="stat-sub" id="s-delta-pct">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Meses de datos</div>
+      <div class="stat-value" id="s-months">—</div>
+    </div>
+  </div>
+
+  <!-- CHART -->
+  <section class="chart-section">
+    <div class="section-title">Evolución histórica de la deuda</div>
+
+    <div class="chart-controls">
+      <div class="metric-toggle">
+        <button class="toggle-btn active" data-metric="abs" onclick="switchMetric('abs', this)">Miles de millones €</button>
+        <button class="toggle-btn" data-metric="pct" onclick="switchMetric('pct', this)">Variación acumulada %</button>
+      </div>
+      <div class="party-legend" id="partyLegend"></div>
+    </div>
+
+    <div class="chart-box">
+      <div class="chart-canvas-wrap">
+        <div id="loading">Cargando datos…</div>
+        <canvas id="mainChart" style="display:none"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- CARDS -->
+  <section class="cards-section">
+    <div class="section-title">Deuda acumulada por mandato</div>
+    <div class="cards-grid" id="cardsGrid"></div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <strong>Fuente de deuda:</strong> Banco de España · Boletín Estadístico, Tabla 11.b · Protocolo de Déficit Excesivo (PDE/EDP) · Metodología SEC2010<br>
+    <strong>URL:</strong> https://www.bde.es/webbe/es/estadisticas/compartido/datos/csv/be11b.csv<br>
+    <strong>Fuente de mandatos:</strong> La Moncloa / BOE (Boletín Oficial del Estado)<br>
+    <strong>Unidad:</strong> Miles de euros (÷ 1.000.000 = miles de millones €) · <strong>Frecuencia:</strong> Mensual · <strong>Cobertura:</strong> dic 1994 – presente<br>
+    <strong>Nota:</strong> Los datos del Banco de España pueden sufrir revisiones retroactivas. El período anterior a dic 1994 no dispone de datos mensuales en esta fuente.
+  </footer>
+
+</div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────────
+const CSV_URL   = 'data/spain/debt_monthly.csv';
+const JSON_URL  = 'data/spain/presidents.json';
+
+// ── STATE ─────────────────────────────────────────────────────────────
+let debtData    = [];   // [{date:'1994-12', value:249507}]  value in millions EUR
+let presidents  = [];
+let parties     = {};
+let chart       = null;
+let currentMetric = 'abs';
+
+// ── UTILS ─────────────────────────────────────────────────────────────
+function fmtB(v) {
+  // v is in billions EUR
+  if (v === null || isNaN(v)) return '—';
+  return (v >= 1000 ? (v/1000).toFixed(2) + ' bill.' : v.toFixed(1) + ' mm') + ' €';
+}
+
+function fmtBshort(v) {
+  if (v === null || isNaN(v)) return '—';
+  return v.toFixed(1) + ' mm€';
+}
+
+function hexAlpha(hex, a) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+// ── PARSE CSV ─────────────────────────────────────────────────────────
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  const result = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(',');
+    const date = cols[0]?.trim();
+    const raw  = cols[1]?.trim();
+    if (!date || !raw || raw === '_') continue;
+    const val = parseFloat(raw);
+    if (!isNaN(val)) {
+      result.push({ date, value: val / 1e6 }); // miles de euros → miles de millones
+    }
+  }
+  return result;
+}
+
+// ── FIND VALUE AT DATE ────────────────────────────────────────────────
+function valueAt(yyyymm) {
+  if (!yyyymm) return null;
+  const target = yyyymm.substring(0, 7);
+  const exact = debtData.find(d => d.date === target);
+  if (exact) return exact.value;
+  // nearest before
+  const sorted = debtData.filter(d => d.date <= target);
+  return sorted.length ? sorted[sorted.length - 1].value : null;
+}
+
+function latestDebt() {
+  for (let i = debtData.length - 1; i >= 0; i--) {
+    if (debtData[i].value !== null) return debtData[i];
+  }
+  return null;
+}
+
+// ── RENDER STATS BAR ──────────────────────────────────────────────────
+function renderStats() {
+  const first  = debtData[0];
+  const latest = latestDebt();
+  const delta  = latest.value - first.value;
+  const pct    = ((delta / first.value) * 100).toFixed(1);
+
+  document.getElementById('s-start').textContent  = fmtBshort(first.value);
+  document.getElementById('s-latest').textContent = fmtBshort(latest.value);
+  document.getElementById('s-delta').textContent  = '+' + fmtBshort(delta);
+  document.getElementById('s-delta-pct').textContent = '+' + pct + '% desde dic 1994';
+  document.getElementById('s-months').textContent = debtData.length;
+}
+
+// ── RENDER LEGEND ─────────────────────────────────────────────────────
+function renderLegend() {
+  const el = document.getElementById('partyLegend');
+  el.innerHTML = Object.entries(parties).map(([key, p]) => `
+    <div class="legend-item">
+      <div class="legend-dot" style="background:${p.color}"></div>
+      <span>${key} — ${p.name}</span>
+    </div>
+  `).join('');
+}
+
+// ── BUILD ANNOTATIONS ─────────────────────────────────────────────────
+function buildAnnotations() {
+  const annotations = {};
+  const latestDate  = latestDebt().date;
+  const firstDate   = debtData[0].date;
+
+  presidents.forEach((p, i) => {
+    const startRaw = p.start.substring(0, 7);
+    const endRaw   = p.end ? p.end.substring(0, 7) : latestDate;
+    const xMin     = startRaw < firstDate ? firstDate : startRaw;
+    const xMax     = endRaw   > latestDate ? latestDate : endRaw;
+
+    // Shaded band
+    annotations[`band_${i}`] = {
+      type: 'box',
+      xMin, xMax,
+      backgroundColor: hexAlpha(p.color, 0.07),
+      borderColor: hexAlpha(p.color, 0.0),
+      borderWidth: 0,
+    };
+
+    // Left edge line
+    if (xMin >= firstDate) {
+      annotations[`line_${i}`] = {
+        type: 'line',
+        xMin, xMax: xMin,
+        borderColor: hexAlpha(p.color, 0.5),
+        borderWidth: 1,
+        borderDash: [4, 3],
+        label: {
+          content: p.name.split(' ')[0],
+          display: true,
+          position: 'start',
+          yAdjust: -8 + (i % 3) * 18,
+          font: { family: "'JetBrains Mono', monospace", size: 9 },
+          color: p.color,
+          backgroundColor: 'transparent',
+          padding: 0,
+        }
+      };
+    }
+  });
+
+  return annotations;
+}
+
+// ── RENDER CHART ──────────────────────────────────────────────────────
+function renderChart() {
+  const labels = debtData.map(d => d.date);
+  let values;
+
+  if (currentMetric === 'abs') {
+    values = debtData.map(d => d.value);
+  } else {
+    const base = debtData[0].value;
+    values = debtData.map(d => +((d.value - base) / base * 100).toFixed(2));
+  }
+
+  if (chart) { chart.destroy(); chart = null; }
+
+  document.getElementById('loading').style.display = 'none';
+  const canvas = document.getElementById('mainChart');
+  canvas.style.display = 'block';
+
+  const ctx = canvas.getContext('2d');
+
+  // Gradient fill
+  const grad = ctx.createLinearGradient(0, 0, 0, 380);
+  grad.addColorStop(0, 'rgba(198,11,30,0.18)');
+  grad.addColorStop(1, 'rgba(198,11,30,0.0)');
+
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: currentMetric === 'abs' ? 'Deuda AAPP (mm€)' : 'Variación acumulada (%)',
+        data: values,
+        borderColor: '#c60b1e',
+        borderWidth: 2,
+        backgroundColor: grad,
+        fill: true,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        pointHoverBackgroundColor: '#c60b1e',
+        tension: 0.3,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 500 },
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0d0f1a',
+          borderColor: 'rgba(255,255,255,0.1)',
+          borderWidth: 1,
+          titleColor: '#e8eaf0',
+          bodyColor: 'rgba(232,234,240,0.6)',
+          titleFont: { family: "'JetBrains Mono', monospace", size: 11 },
+          bodyFont: { family: "'JetBrains Mono', monospace", size: 11 },
+          padding: 12,
+          cornerRadius: 10,
+          callbacks: {
+            title: ([item]) => {
+              const d = item.label;
+              const pres = presidAtDate(d);
+              return d + (pres ? `  ·  ${pres.name.split(' ')[0]} ${pres.name.split(' ')[1]}` : '');
+            },
+            label: (item) => {
+              const v = item.raw;
+              if (currentMetric === 'abs') return `  Deuda: ${v.toFixed(1)} mm€`;
+              return `  Var. acumulada: ${v > 0 ? '+' : ''}${v.toFixed(1)}%`;
+            }
+          }
+        },
+        annotation: { annotations: buildAnnotations() }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(255,255,255,0.04)', drawBorder: false },
+          border: { display: false },
+          ticks: {
+            color: 'rgba(232,234,240,0.35)',
+            font: { family: "'JetBrains Mono', monospace", size: 9 },
+            maxTicksLimit: 16,
+            maxRotation: 0,
+            callback: (val, idx, ticks) => {
+              const label = chart.data.labels[idx];
+              if (label && label.endsWith('-01')) return label.substring(0, 4);
+              return '';
+            }
+          }
+        },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false },
+          border: { display: false },
+          ticks: {
+            color: 'rgba(232,234,240,0.4)',
+            font: { family: "'JetBrains Mono', monospace", size: 9.5 },
+            callback: (v) => currentMetric === 'abs'
+              ? v.toFixed(0) + ' mm€'
+              : (v > 0 ? '+' : '') + v.toFixed(0) + '%'
+          }
+        }
+      }
+    }
+  });
+}
+
+// ── FIND PRESIDENT AT DATE ────────────────────────────────────────────
+function presidAtDate(yyyymm) {
+  return presidents.find(p => {
+    const s = p.start.substring(0, 7);
+    const e = p.end ? p.end.substring(0, 7) : '9999-99';
+    return yyyymm >= s && yyyymm <= e;
+  });
+}
+
+// ── RENDER CARDS ──────────────────────────────────────────────────────
+function renderCards() {
+  const grid = document.getElementById('cardsGrid');
+  const firstAvail = debtData[0].date;
+  const latest = latestDebt();
+
+  grid.innerHTML = presidents.map(p => {
+    const pStart = p.start.substring(0, 7);
+    const pEnd   = p.end ? p.end.substring(0, 7) : null;
+    const color  = p.color;
+    const party  = parties[p.party] || { name: p.party, color };
+
+    // Data availability
+    const dataStart = pStart >= firstAvail ? pStart : firstAvail;
+    const dataEnd   = pEnd || latest.date;
+    const hasData   = dataStart <= latest.date;
+
+    const vStart = hasData ? valueAt(dataStart) : null;
+    const vEnd   = pEnd ? valueAt(dataEnd) : latest.value;
+    const delta  = (vStart !== null && vEnd !== null) ? vEnd - vStart : null;
+    const deltaPct = delta !== null && vStart ? ((delta / vStart) * 100).toFixed(1) : null;
+    const isCurrent = !p.end;
+
+    // Year display
+    const startYear = p.start.substring(0, 4);
+    const endYear   = p.end ? p.end.substring(0, 4) : 'pres.';
+
+    // Delta block
+    let deltaHTML;
+    if (!hasData) {
+      deltaHTML = `<div class="card-delta na">
+        <span>Sin datos mensuales disponibles</span>
+        <span class="delta-sub">anterior a dic 1994</span>
+      </div>`;
+    } else if (isCurrent) {
+      deltaHTML = `<div class="card-delta current">
+        <span>◉ En ejercicio</span>
+        ${delta !== null ? `<span style="margin-left:auto;font-size:0.8rem">+${fmtBshort(delta)}</span>` : ''}
+      </div>`;
+    } else if (delta >= 0) {
+      deltaHTML = `<div class="card-delta up">
+        <span>↑ +${fmtBshort(delta)}</span>
+        <span class="delta-sub">+${deltaPct}% en el mandato</span>
+      </div>`;
+    } else {
+      deltaHTML = `<div class="card-delta down">
+        <span>↓ ${fmtBshort(delta)}</span>
+        <span class="delta-sub">${deltaPct}% en el mandato</span>
+      </div>`;
+    }
+
+    return `
+    <div class="card">
+      <div class="card-top">
+        <div class="card-party-bar" style="background:${color}"></div>
+        <div class="card-name-wrap">
+          <div class="card-name">${p.name}</div>
+          <div class="card-party-label" style="background:${hexAlpha(color, 0.15)};color:${color}">
+            ${p.party} · ${party.name}
+          </div>
+        </div>
+        <div class="card-years">${startYear}–${endYear}</div>
+      </div>
+      <div class="card-body">
+        <div class="card-numbers">
+          <div class="num-cell">
+            <div class="num-label">Deuda inicio</div>
+            <div class="num-value ${vStart === null ? 'na' : ''}">${vStart !== null ? fmtBshort(vStart) : 'Sin datos'}</div>
+            ${hasData && pStart < firstAvail ? `<div style="font-family:var(--font-mono);font-size:7.5px;color:var(--muted);margin-top:2px">desde ${firstAvail}</div>` : ''}
+          </div>
+          <div class="num-cell">
+            <div class="num-label">Deuda fin</div>
+            <div class="num-value ${isCurrent ? 'na' : ''}">${isCurrent ? 'En curso (' + fmtBshort(vEnd) + ')' : fmtBshort(vEnd)}</div>
+          </div>
+        </div>
+        ${deltaHTML}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── METRIC SWITCH ─────────────────────────────────────────────────────
+function switchMetric(m, btn) {
+  currentMetric = m;
+  document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderChart();
+}
+
+// ── MAIN ──────────────────────────────────────────────────────────────
+async function init() {
+  try {
+    const [csvText, jsonData] = await Promise.all([
+      fetch(CSV_URL).then(r => r.text()),
+      fetch(JSON_URL).then(r => r.json())
+    ]);
+
+    debtData   = parseCSV(csvText);
+    presidents = jsonData.presidents;
+    parties    = jsonData.parties;
+
+    renderStats();
+    renderLegend();
+    renderChart();
+    renderCards();
+
+  } catch (err) {
+    document.getElementById('loading').textContent = 'Error cargando datos: ' + err.message;
+    console.error(err);
+  }
+}
+
+init();
+</script>
+</body>
+</html>
