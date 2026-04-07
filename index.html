@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Deuda por Presidente</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #06070d;
+      --surface: #0d0f1a;
+      --surface2: #13162a;
+      --border: rgba(255,255,255,0.07);
+      --text: #e8eaf0;
+      --muted: rgba(232,234,240,0.45);
+      --accent: #4f7cff;
+      --accent2: #a78bfa;
+      --red: #f04e5e;
+      --green: #22d8a0;
+      --radius: 14px;
+      --font-display: 'Syne', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-serif: 'Lora', serif;
+      /* country theme (overridden by JS) */
+      --c1: #4f7cff;
+      --c2: #a78bfa;
+      --c1-dim: rgba(79,124,255,0.12);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-serif);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Background grid texture ─────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Ambient glow ────────────────────────────────────── */
+    .glow {
+      position: fixed;
+      width: 600px; height: 600px;
+      border-radius: 50%;
+      filter: blur(140px);
+      opacity: 0.07;
+      pointer-events: none;
+      z-index: 0;
+      transition: background 0.8s ease;
+    }
+    .glow-1 { top: -200px; right: -100px; background: var(--c1); }
+    .glow-2 { bottom: -200px; left: -100px; background: var(--c2); }
+
+    /* ── Layout ──────────────────────────────────────────── */
+    .wrapper {
+      position: relative;
+      z-index: 1;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 24px 80px;
+    }
+
+    /* ── Header ──────────────────────────────────────────── */
+    header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 52px 0 36px;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    .header-left { max-width: 560px; }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--c1);
+      margin-bottom: 12px;
+      transition: color 0.5s;
+    }
+
+    h1 {
+      font-family: var(--font-display);
+      font-size: clamp(2rem, 5vw, 3.4rem);
+      font-weight: 800;
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      color: var(--text);
+    }
+
+    h1 span {
+      background: linear-gradient(135deg, var(--c1), var(--c2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      transition: background 0.5s;
+    }
+
+    .subtitle {
+      font-family: var(--font-serif);
+      font-style: italic;
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin-top: 10px;
+    }
+
+    /* ── Country selector ────────────────────────────────── */
+    .country-selector {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .country-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      cursor: pointer;
+      transition: all 0.25s cubic-bezier(.4,0,.2,1);
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: var(--muted);
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+
+    .country-btn .flag { font-size: 1.3rem; line-height: 1; }
+
+    .country-btn:hover {
+      border-color: var(--c1);
+      color: var(--text);
+      transform: translateY(-1px);
+    }
+
+    .country-btn.active {
+      background: linear-gradient(135deg, var(--c1-dim), rgba(167,139,250,0.1));
+      border-color: var(--c1);
+      color: var(--text);
+      box-shadow: 0 0 0 1px var(--c1), 0 4px 24px rgba(0,0,0,0.3);
+    }
+
+    /* ── Stats bar ───────────────────────────────────────── */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1px;
+      background: var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin: 32px 0 0;
+    }
+
+    .stat-item {
+      background: var(--surface);
+      padding: 22px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .stat-label {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .stat-value {
+      font-family: var(--font-mono);
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.02em;
+    }
+
+    .stat-sub {
+      font-family: var(--font-serif);
+      font-style: italic;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    /* ── Chart section ───────────────────────────────────── */
+    .chart-section {
+      margin-top: 40px;
+    }
+
+    .section-title {
+      font-family: var(--font-display);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .chart-container {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 24px 20px;
+      position: relative;
+    }
+
+    .chart-canvas-wrap {
+      position: relative;
+      height: 320px;
+    }
+
+    /* ── Cards ───────────────────────────────────────────── */
+    .cards-section { margin-top: 40px; }
+
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 14px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px 24px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      transition: border-color 0.2s, transform 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      border-radius: var(--radius) var(--radius) 0 0;
+    }
+
+    .card.increase::before { background: var(--red); }
+    .card.decrease::before { background: var(--green); }
+    .card.current::before  { background: linear-gradient(90deg, var(--c1), var(--c2)); }
+
+    .card:hover {
+      border-color: rgba(255,255,255,0.14);
+      transform: translateY(-2px);
+    }
+
+    .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+
+    .card-name {
+      font-family: var(--font-display);
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.2;
+    }
+
+    .card-years {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--muted);
+      white-space: nowrap;
+      padding: 4px 8px;
+      background: var(--surface2);
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+
+    .card-data {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .data-cell { display: flex; flex-direction: column; gap: 3px; }
+
+    .data-label {
+      font-family: var(--font-mono);
+      font-size: 8.5px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .data-value {
+      font-family: var(--font-mono);
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .data-value.null { color: var(--muted); font-style: italic; font-weight: 400; font-family: var(--font-serif); font-size: 0.8rem; }
+
+    .card-delta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-family: var(--font-mono);
+      font-size: 0.88rem;
+      font-weight: 700;
+    }
+
+    .card-delta.increase { background: rgba(240,78,94,0.1); color: var(--red); border: 1px solid rgba(240,78,94,0.2); }
+    .card-delta.decrease { background: rgba(34,216,160,0.1); color: var(--green); border: 1px solid rgba(34,216,160,0.2); }
+    .card-delta.current  { background: var(--c1-dim); color: var(--c1); border: 1px solid rgba(79,124,255,0.2); }
+
+    .delta-arrow { font-size: 1rem; }
+    .delta-label { font-family: var(--font-serif); font-style: italic; font-weight: 400; font-size: 0.75rem; margin-left: auto; color: currentColor; opacity: 0.7; }
+
+    /* ── Footer ──────────────────────────────────────────── */
+    footer {
+      margin-top: 60px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+      line-height: 1.8;
+    }
+
+    footer strong { color: rgba(232,234,240,0.6); }
+
+    /* ── Transitions for country switch ─────────────────── */
+    .fade-target {
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+
+    .fade-target.fade-out {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+
+    /* ── Responsive ──────────────────────────────────────── */
+    @media (max-width: 600px) {
+      header { flex-direction: column; align-items: flex-start; }
+      .cards-grid { grid-template-columns: 1fr; }
+      .chart-canvas-wrap { height: 250px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="glow glow-1"></div>
+<div class="glow glow-2"></div>
+
+<div class="wrapper">
+
+  <!-- Header -->
+  <header>
+    <div class="header-left">
+      <div class="eyebrow">Análisis fiscal · Datos históricos</div>
+      <h1>Deuda por<br><span id="title-country">Presidente</span></h1>
+      <p class="subtitle">Deuda pública acumulada durante cada mandato presidencial</p>
+    </div>
+    <div class="country-selector" id="countrySelector">
+      <button class="country-btn" data-country="es">
+        <span class="flag">🇪🇸</span> España
+      </button>
+      <button class="country-btn" data-country="us">
+        <span class="flag">🇺🇸</span> Estados Unidos
+      </button>
+      <button class="country-btn" data-country="pa">
+        <span class="flag">🇵🇦</span> Panamá
+      </button>
+    </div>
+  </header>
+
+  <!-- Stats Bar -->
+  <div class="stats-bar fade-target" id="statsBar">
+    <div class="stat-item">
+      <div class="stat-label">País</div>
+      <div class="stat-value" id="stat-country">—</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">Presidentes</div>
+      <div class="stat-value" id="stat-presidents">—</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">Mayor aumento</div>
+      <div class="stat-value" id="stat-max">—</div>
+      <div class="stat-sub" id="stat-max-name">—</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">Unidad de medida</div>
+      <div class="stat-value" id="stat-unit">—</div>
+    </div>
+  </div>
+
+  <!-- Chart -->
+  <section class="chart-section">
+    <div class="section-title">Variación de deuda por mandato</div>
+    <div class="chart-container fade-target" id="chartContainer">
+      <div class="chart-canvas-wrap">
+        <canvas id="debtChart"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- Cards -->
+  <section class="cards-section">
+    <div class="section-title">Detalle por presidente</div>
+    <div class="cards-grid fade-target" id="cardsGrid"></div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <strong>Fuentes:</strong> Banco Mundial (World Bank Open Data) · Fondo Monetario Internacional (IMF WEO) ·
+    Ministerio de Hacienda de España · U.S. Treasury / Office of Management and Budget ·
+    Ministerio de Economía y Finanzas de Panamá<br>
+    <strong>Nota:</strong> Datos aproximados con fines ilustrativos. Deuda pública bruta del gobierno central.
+    España expresada como % del PIB; EE.UU. en billones USD; Panamá en miles de millones USD.
+    Presidentes en curso marcados como "En curso" sin delta disponible.
+  </footer>
+
+</div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────────────────
+const COUNTRIES = {
+  es: {
+    name: 'España',
+    flag: '🇪🇸',
+    unit: '% del PIB',
+    unitShort: '% PIB',
+    theme: { c1: '#c60b1e', c2: '#f0b429', c1dim: 'rgba(198,11,30,0.12)' },
+    title: 'España',
+    presidents: [
+      { name: 'Felipe González',         years: '1982–1996', start: 26,   end: 68   },
+      { name: 'José María Aznar',         years: '1996–2004', start: 68,   end: 46   },
+      { name: 'José L. R. Zapatero',      years: '2004–2011', start: 46,   end: 69   },
+      { name: 'Mariano Rajoy',            years: '2011–2018', start: 69,   end: 98   },
+      { name: 'Pedro Sánchez',            years: '2018–2025', start: 98,   end: 113  },
+    ]
+  },
+  us: {
+    name: 'Estados Unidos',
+    flag: '🇺🇸',
+    unit: 'Billones USD',
+    unitShort: 'T USD',
+    theme: { c1: '#3c6fe0', c2: '#e03c3c', c1dim: 'rgba(60,111,224,0.12)' },
+    title: 'EE.UU.',
+    presidents: [
+      { name: 'Bill Clinton',             years: '1993–2001', start: 4.4,  end: 5.8  },
+      { name: 'George W. Bush',           years: '2001–2009', start: 5.8,  end: 10.6 },
+      { name: 'Barack Obama',             years: '2009–2017', start: 10.6, end: 19.9 },
+      { name: 'Donald Trump (1er m.)',    years: '2017–2021', start: 19.9, end: 27.7 },
+      { name: 'Joe Biden',                years: '2021–2025', start: 27.7, end: 36.2 },
+      { name: 'Donald Trump (2do m.)',    years: '2025–pres.', start: 36.2, end: null },
+    ]
+  },
+  pa: {
+    name: 'Panamá',
+    flag: '🇵🇦',
+    unit: 'Miles de millones USD',
+    unitShort: 'B USD',
+    theme: { c1: '#005293', c2: '#da121a', c1dim: 'rgba(0,82,147,0.12)' },
+    title: 'Panamá',
+    presidents: [
+      { name: 'Mireya Moscoso',           years: '1999–2004', start: 7.2,  end: 9.0  },
+      { name: 'Martín Torrijos',          years: '2004–2009', start: 9.0,  end: 11.2 },
+      { name: 'Ricardo Martinelli',       years: '2009–2014', start: 11.2, end: 17.8 },
+      { name: 'Juan Carlos Varela',       years: '2014–2019', start: 17.8, end: 26.5 },
+      { name: 'Laurentino Cortizo',       years: '2019–2024', start: 26.5, end: 42.1 },
+      { name: 'José R. Mulino',           years: '2024–pres.', start: 42.1, end: null },
+    ]
+  }
+};
+
+// ── STATE & CHART ─────────────────────────────────────────────────────
+let chart = null;
+let currentCountry = null;
+
+function getDelta(p) {
+  if (p.end === null) return null;
+  return +(p.end - p.start).toFixed(2);
+}
+
+function fmt(val, country) {
+  if (val === null) return '—';
+  const c = COUNTRIES[country];
+  if (country === 'es') return val.toFixed(1) + '%';
+  if (country === 'us') return '$' + val.toFixed(1) + 'T';
+  if (country === 'pa') return '$' + val.toFixed(1) + 'B';
+  return val;
+}
+
+function fmtDelta(delta, country) {
+  if (delta === null) return 'En curso';
+  const sign = delta >= 0 ? '+' : '';
+  return sign + fmt(delta, country);
+}
+
+// ── THEME ─────────────────────────────────────────────────────────────
+function applyTheme(countryKey) {
+  const t = COUNTRIES[countryKey].theme;
+  const root = document.documentElement;
+  root.style.setProperty('--c1', t.c1);
+  root.style.setProperty('--c2', t.c2);
+  root.style.setProperty('--c1-dim', t.c1dim);
+  // Glow elements use CSS vars transitioning
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────
+function renderCountry(key, animate = true) {
+  if (key === currentCountry) return;
+  currentCountry = key;
+  const data = COUNTRIES[key];
+
+  applyTheme(key);
+
+  // Button states
+  document.querySelectorAll('.country-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.country === key);
+  });
+
+  const fadeEls = document.querySelectorAll('.fade-target');
+
+  const doRender = () => {
+    // Title
+    document.getElementById('title-country').textContent = data.title;
+
+    // Stats
+    document.getElementById('stat-country').textContent = data.flag + ' ' + data.name;
+    document.getElementById('stat-presidents').textContent = data.presidents.length;
+    const withDelta = data.presidents.filter(p => p.end !== null);
+    const maxP = withDelta.reduce((a, b) => getDelta(b) > getDelta(a) ? b : a, withDelta[0]);
+    document.getElementById('stat-max').textContent = fmtDelta(getDelta(maxP), key);
+    document.getElementById('stat-max-name').textContent = maxP.name;
+    document.getElementById('stat-unit').textContent = data.unitShort;
+
+    renderChart(key);
+    renderCards(key);
+
+    fadeEls.forEach(el => el.classList.remove('fade-out'));
+  };
+
+  if (animate) {
+    fadeEls.forEach(el => el.classList.add('fade-out'));
+    setTimeout(doRender, 220);
+  } else {
+    doRender();
+  }
+}
+
+// ── CHART ─────────────────────────────────────────────────────────────
+function renderChart(key) {
+  const data = COUNTRIES[key];
+  const theme = data.theme;
+
+  const labels = data.presidents.map(p => p.name);
+  const deltas = data.presidents.map(p => getDelta(p));
+
+  const barColors = deltas.map(d =>
+    d === null ? 'rgba(255,255,255,0.15)' :
+    d > 0 ? 'rgba(240,78,94,0.75)' : 'rgba(34,216,160,0.75)'
+  );
+  const borderColors = deltas.map(d =>
+    d === null ? 'rgba(255,255,255,0.3)' :
+    d > 0 ? '#f04e5e' : '#22d8a0'
+  );
+
+  if (chart) { chart.destroy(); chart = null; }
+
+  const ctx = document.getElementById('debtChart').getContext('2d');
+
+  chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Variación de deuda',
+        data: deltas,
+        backgroundColor: barColors,
+        borderColor: borderColors,
+        borderWidth: 1.5,
+        borderRadius: 6,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 600, easing: 'easeOutQuart' },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0d0f1a',
+          borderColor: 'rgba(255,255,255,0.1)',
+          borderWidth: 1,
+          titleColor: '#e8eaf0',
+          bodyColor: 'rgba(232,234,240,0.6)',
+          titleFont: { family: "'Syne', sans-serif", weight: '700', size: 13 },
+          bodyFont: { family: "'JetBrains Mono', monospace", size: 11 },
+          padding: 14,
+          cornerRadius: 10,
+          callbacks: {
+            title: (items) => labels[items[0].dataIndex],
+            label: (item) => {
+              const p = data.presidents[item.dataIndex];
+              const d = getDelta(p);
+              if (d === null) return '  Estado: En curso';
+              const sign = d >= 0 ? '+' : '';
+              return [
+                '  Inicio: ' + fmt(p.start, key),
+                '  Fin:    ' + fmt(p.end, key),
+                '  Δ:      ' + sign + fmt(d, key),
+              ];
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(255,255,255,0.04)', drawBorder: false },
+          border: { display: false },
+          ticks: {
+            color: 'rgba(232,234,240,0.45)',
+            font: { family: "'JetBrains Mono', monospace", size: 10 },
+            maxRotation: 30,
+          }
+        },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false },
+          border: { display: false, dash: [4, 4] },
+          ticks: {
+            color: 'rgba(232,234,240,0.45)',
+            font: { family: "'JetBrains Mono', monospace", size: 10 },
+            callback: (val) => {
+              if (key === 'es') return val.toFixed(0) + '%';
+              if (key === 'us') return '$' + val.toFixed(1) + 'T';
+              return '$' + val.toFixed(0) + 'B';
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+// ── CARDS ─────────────────────────────────────────────────────────────
+function renderCards(key) {
+  const data = COUNTRIES[key];
+  const grid = document.getElementById('cardsGrid');
+  grid.innerHTML = '';
+
+  data.presidents.forEach(p => {
+    const delta = getDelta(p);
+    const isCurrent = p.end === null;
+    const isIncrease = delta !== null && delta > 0;
+    const isDecrease = delta !== null && delta <= 0;
+
+    const card = document.createElement('div');
+    card.className = 'card ' + (isCurrent ? 'current' : isIncrease ? 'increase' : 'decrease');
+
+    let deltaHTML;
+    if (isCurrent) {
+      deltaHTML = `<div class="card-delta current">
+        <span class="delta-arrow">◉</span>
+        <span>Mandato en curso</span>
+      </div>`;
+    } else if (isIncrease) {
+      deltaHTML = `<div class="card-delta increase">
+        <span class="delta-arrow">↑</span>
+        <span>${fmtDelta(delta, key)}</span>
+        <span class="delta-label">aumento</span>
+      </div>`;
+    } else {
+      deltaHTML = `<div class="card-delta decrease">
+        <span class="delta-arrow">↓</span>
+        <span>${fmtDelta(delta, key)}</span>
+        <span class="delta-label">reducción</span>
+      </div>`;
+    }
+
+    card.innerHTML = `
+      <div class="card-header">
+        <div class="card-name">${p.name}</div>
+        <div class="card-years">${p.years}</div>
+      </div>
+      <div class="card-data">
+        <div class="data-cell">
+          <div class="data-label">Deuda inicio</div>
+          <div class="data-value">${fmt(p.start, key)}</div>
+        </div>
+        <div class="data-cell">
+          <div class="data-label">Deuda fin</div>
+          <div class="data-value ${isCurrent ? 'null' : ''}">${isCurrent ? 'En curso' : fmt(p.end, key)}</div>
+        </div>
+      </div>
+      ${deltaHTML}
+    `;
+
+    grid.appendChild(card);
+  });
+}
+
+// ── EVENTS ────────────────────────────────────────────────────────────
+document.getElementById('countrySelector').addEventListener('click', e => {
+  const btn = e.target.closest('.country-btn');
+  if (btn) renderCountry(btn.dataset.country);
+});
+
+// ── INIT ──────────────────────────────────────────────────────────────
+renderCountry('es', false);
+</script>
+</body>
+</html>
